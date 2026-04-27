@@ -41,6 +41,10 @@ pipeline = (
 
 cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
 
+if not cap.isOpened():
+    print("Camera failed to open")
+    exit()
+
 while True:
 
     ret, frame = cap.read()
