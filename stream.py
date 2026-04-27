@@ -30,10 +30,18 @@ def generate_payload(query: str, image_b64):
 
 # Get live video stream with opencv
 
+pipeline = (
+    "nvarguscamerasrc ! "
+    "video/x-raw(memory:NVMM), width=1280, height=720, framerate=30/1 ! "
+    "nvvidconv ! "
+    "video/x-raw, format=BGRx ! "
+    "videoconvert ! "
+    "video/x-raw, format=BGR ! appsink"
+)
+
+cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
 
 while True:
-
-    cap = cv2.VideoCapture(0)
 
     ret, frame = cap.read()
 
