@@ -96,7 +96,7 @@ while True:
     _, buffer = cv2.imencode('.jpg', frame)
     image_b64 = base64.b64encode(buffer).decode()
 
-    payload = generate_payload("nose", image_b64)
+    payload = generate_payload("glasses", image_b64)
     url = "http://localhost:8080/v1/chat/completions"
     response = requests.post(url, json=payload)
 
