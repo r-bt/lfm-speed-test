@@ -73,8 +73,6 @@ writer = None
 output_path = Path("output.mp4")
 prev_time = time.time()
 current_fps = 30.0
-fps_samples = []
-fps_warmup = 10
 
 if not cap.isOpened():
     print("Camera failed to open")
@@ -105,11 +103,6 @@ try:
         loop_fps = 1 / (current_time - prev_time)
         prev_time = current_time
 
-        # Collect FPS samples during warmup to get a stable estimate
-        if len(fps_samples) < fps_warmup:
-            fps_samples.append(loop_fps)
-            current_fps = sum(fps_samples) / len(fps_samples)
-
         if writer is None:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             writer = cv2.VideoWriter(str(output_path), fourcc, current_fps, (new_w, new_h))
@@ -137,7 +130,7 @@ try:
         writer.write(frame)
 
         # Display FPS on the live preview
-        cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 30), 
+        cv2.putText(frame, f"FPS: {loop_fps:.1f}", (10, 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # Display the resulting frame
