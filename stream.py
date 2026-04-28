@@ -2,8 +2,8 @@ import json
 import requests
 import base64
 import cv2
+import time
 from pathlib import Path
-# import time
 # from io import BytesIO
 # from PIL import Image
 
@@ -71,7 +71,10 @@ cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 writer = None
 output_path = Path("output.mp4")
-fps = 30.0
+prev_time = time.time()
+current_fps = 30.0
+fps_samples = []
+fps_warmup = 10
 
 if not cap.isOpened():
     print("Camera failed to open")
@@ -97,9 +100,19 @@ try:
 
         frame = cv2.resize(frame, (new_w, new_h))
 
+        # Calculate FPS for the loop timing
+        current_time = time.time()
+        loop_fps = 1 / (current_time - prev_time)
+        prev_time = current_time
+
+        # Collect FPS samples during warmup to get a stable estimate
+        if len(fps_samples) < fps_warmup:
+            fps_samples.append(loop_fps)
+            current_fps = sum(fps_samples) / len(fps_samples)
+
         if writer is None:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (new_w, new_h))
+            writer = cv2.VideoWriter(str(output_path), fourcc, current_fps, (new_w, new_h))
 
         # Encode the image to base64
         _, buffer = cv2.imencode('.jpg', frame)
@@ -122,6 +135,10 @@ try:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         writer.write(frame)
+
+        # Display FPS on the live preview
+        cv2.putText(frame, f"FPS: {current_fps:.1f}", (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # Display the resulting frame
         cv2.imshow('frame', frame)
