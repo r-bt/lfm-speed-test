@@ -21,7 +21,7 @@ def gstreamer_pipeline(
         "nvvidconv flip-method=%d ! "
         "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
         "videoconvert ! "
-        "video/x-raw, format=(string)BGR ! appsink"
+        "video/x-raw, format=(string)BGR ! appsink drop=true max-buffers=1 sync=false"
         % (
             sensor_id,
             capture_width,
@@ -63,10 +63,11 @@ pipeline = (
     "nvvidconv ! "
     "video/x-raw, format=BGRx ! "
     "videoconvert ! "
-    "video/x-raw, format=BGR ! appsink"
+    "video/x-raw, format=BGR ! appsink drop=true max-buffers=1 sync=false"
 )
 
 cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 if not cap.isOpened():
     print("Camera failed to open")
