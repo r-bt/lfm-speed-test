@@ -2,6 +2,7 @@ import json
 import requests
 import base64
 import cv2
+from pathlib import Path
 # import time
 # from io import BytesIO
 # from PIL import Image
@@ -68,52 +69,67 @@ pipeline = (
 
 cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+writer = None
+output_path = Path("output.mp4")
+fps = 30.0
 
 if not cap.isOpened():
     print("Camera failed to open")
     exit()
 
-while True:
+try:
+    while True:
 
-    ret, frame = cap.read()
+        ret, frame = cap.read()
 
-    if not ret:
-        print("Failed to capture image")
-        continue
+        if not ret:
+            print("Failed to capture image")
+            continue
 
-    # Resize the frame so largest dim is 512 while keeping aspect ratio
-    h, w, _ = frame.shape
-    if h > w:
-        new_h = 512
-        new_w = int(w * (512 / h))
-    else:
-        new_w = 512
-        new_h = int(h * (512 / w))
+        # Resize the frame so largest dim is 512 while keeping aspect ratio
+        h, w, _ = frame.shape
+        if h > w:
+            new_h = 512
+            new_w = int(w * (512 / h))
+        else:
+            new_w = 512
+            new_h = int(h * (512 / w))
 
-    frame = cv2.resize(frame, (new_w, new_h))
+        frame = cv2.resize(frame, (new_w, new_h))
 
-    # Encode the image to base64
-    _, buffer = cv2.imencode('.jpg', frame)
-    image_b64 = base64.b64encode(buffer).decode()
+        if writer is None:
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (new_w, new_h))
 
-    payload = generate_payload("glasses", image_b64)
-    url = "http://localhost:8080/v1/chat/completions"
-    response = requests.post(url, json=payload)
+        # Encode the image to base64
+        _, buffer = cv2.imencode('.jpg', frame)
+        image_b64 = base64.b64encode(buffer).decode()
 
-    det = json.loads(response.json()['choices'][0]['message']['content'])
+        payload = generate_payload("glasses", image_b64)
+        url = "http://localhost:8080/v1/chat/completions"
+        response = requests.post(url, json=payload)
 
-    x1, y1, x2, y2 = det[0]['bbox']
-    h, w, _ = frame.shape
-    x1 = int(x1 * w)
-    y1 = int(y1 * h)
-    x2 = int(x2 * w)
-    y2 = int(y2 * h)
+        det = json.loads(response.json()['choices'][0]['message']['content'])
 
-    # Draw a bounding box around the detected person
-    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        x1, y1, x2, y2 = det[0]['bbox']
+        h, w, _ = frame.shape
+        x1 = int(x1 * w)
+        y1 = int(y1 * h)
+        x2 = int(x2 * w)
+        y2 = int(y2 * h)
 
-    # Display the resulting frame
-    cv2.imshow('frame', frame)
+        # Draw a bounding box around the detected person
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        writer.write(frame)
+
+        # Display the resulting frame
+        cv2.imshow('frame', frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+finally:
+    if writer is not None:
+        writer.release()
+    cap.release()
+    cv2.destroyAllWindows()
